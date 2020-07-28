@@ -12,6 +12,8 @@
 #include "lua52/lobject.h"
 #elif LUA_VERSION_NUM == 503
 #include "lua53/lobject.h"
+#elif LUA_VERSION_NUM == 504
+#include "lua54/lobject.h"
 #else
 #error unsupported Lua version
 #endif
