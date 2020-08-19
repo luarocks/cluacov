@@ -13,7 +13,7 @@ number of lines incorrectly marked as missed. Depends on LuaCov.
    license = "MIT"
 }
 dependencies = {
-   "lua >= 5.1, < 5.4",
+   "lua >= 5.1",
    "luacov >= 0.13.0"
 }
 build = {
