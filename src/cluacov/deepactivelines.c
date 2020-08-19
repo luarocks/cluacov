@@ -12,6 +12,8 @@
 #include "lua52/lobject.h"
 #elif LUA_VERSION_NUM == 503
 #include "lua53/lobject.h"
+#elif LUA_VERSION_NUM == 504
+#include "lua54/lobject.h"
 #else
 #error unsupported Lua version
 #endif
@@ -24,6 +26,89 @@
 static Proto *get_proto(lua_State *L) {
     return ((Closure *) lua_topointer(L, 1))->l.p;
 }
+
+#if LUA_VERSION_NUM == 504
+
+#define ABSLINEINFO (-0x80)
+
+/*
+** Get a "base line" to find the line corresponding to an instruction.
+** For that, search the array of absolute line info for the largest saved
+** instruction smaller or equal to the wanted instruction. A special
+** case is when there is no absolute info or the instruction is before
+** the first absolute one.
+*/
+static int getbaseline (const Proto *f, int pc, int *basepc) {
+  if (f->sizeabslineinfo == 0 || pc < f->abslineinfo[0].pc) {
+    *basepc = -1;  /* start from the beginning */
+    return f->linedefined;
+  }
+  else {
+    unsigned int i;
+    if (pc >= f->abslineinfo[f->sizeabslineinfo - 1].pc)
+      i = f->sizeabslineinfo - 1;  /* instruction is after last saved one */
+    else {  /* binary search */
+      unsigned int j = f->sizeabslineinfo - 1;  /* pc < anchorlines[j] */
+      i = 0;  /* abslineinfo[i] <= pc */
+      while (i < j - 1) {
+        unsigned int m = (j + i) / 2;
+        if (pc >= f->abslineinfo[m].pc)
+          i = m;
+        else
+          j = m;
+      }
+    }
+    *basepc = f->abslineinfo[i].pc;
+    return f->abslineinfo[i].line;
+  }
+}
+
+/*
+** Get the line corresponding to instruction 'pc' in function 'f';
+** first gets a base line and from there does the increments until
+** the desired instruction.
+*/
+int luaG_getfuncline (const Proto *f, int pc) {
+  if (f->lineinfo == NULL)  /* no debug information? */
+    return -1;
+  else {
+    int basepc;
+    int baseline = getbaseline(f, pc, &basepc);
+    while (basepc++ < pc) {  /* walk until given instruction */
+      baseline += f->lineinfo[basepc];  /* correct line */
+    }
+    return baseline;
+  }
+}
+
+static int nextline (const Proto *p, int currentline, int pc) {
+  if (p->lineinfo[pc] != ABSLINEINFO)
+    return currentline + p->lineinfo[pc];
+  else
+    return luaG_getfuncline(p, pc);
+}
+
+static void add_activelines(lua_State *L, Proto *proto) {
+    /*
+    ** For standard Lua active lines and nested prototypes
+    ** are simply members of Proto, see lobject.h.
+    */
+    int i;
+    int currentline = proto->linedefined;
+
+    for (i = 0; i < proto->sizelineinfo; i++) {  /* for all lines with code */
+        currentline = nextline(proto, currentline, i);
+        lua_pushinteger(L, currentline);
+        lua_pushboolean(L, 1);
+        lua_settable(L, -3);
+    }
+
+    for (i = 0; i < proto->sizep; i++) {
+        add_activelines(L, proto->p[i]);
+    }
+}
+
+# else /* LUA_VERSION_NUM == 504 */
 
 static void add_activelines(lua_State *L, Proto *proto) {
     /*
@@ -42,6 +127,8 @@ static void add_activelines(lua_State *L, Proto *proto) {
         add_activelines(L, proto->p[i]);
     }
 }
+
+#endif /* LUA_VERSION_NUM == 504 */
 
 #else /* LuaJIT */
 
