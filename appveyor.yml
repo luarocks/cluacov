@@ -18,7 +18,7 @@ install:
   - pip install hererocks
   - hererocks lua_install --%LUA% --target %configuration% -r latest
   - call lua_install\bin\activate
-  - git clone --depth=1 https://github.com/keplerproject/luacov
+  - git clone --depth=1 https://github.com/lunarmodules/luacov
   - cd luacov && luarocks make && cd ..
   - luarocks install busted
 
