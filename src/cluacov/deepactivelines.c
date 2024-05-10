@@ -38,14 +38,32 @@ static Proto *get_proto(lua_State *L) {
 
 #if LUA_VERSION_NUM == 504
 
-#define ABSLINEINFO (-0x80)
+/*
+** mark for entries in 'lineinfo' array that has absolute information in
+** 'abslineinfo' array
+*/
+#define ABSLINEINFO	(-0x80)
+
+/*
+** MAXimum number of successive Instructions WiTHout ABSolute line
+** information. (A power of two allows fast divisions.)
+*/
+#if !defined(MAXIWTHABS)
+#define MAXIWTHABS	128
+#endif
 
 /*
 ** Get a "base line" to find the line corresponding to an instruction.
-** For that, search the array of absolute line info for the largest saved
-** instruction smaller or equal to the wanted instruction. A special
-** case is when there is no absolute info or the instruction is before
-** the first absolute one.
+** Base lines are regularly placed at MAXIWTHABS intervals, so usually
+** an integer division gets the right place. When the source file has
+** large sequences of empty/comment lines, it may need extra entries,
+** so the original estimate needs a correction.
+** If the original estimate is -1, the initial 'if' ensures that the
+** 'while' will run at least once.
+** The assertion that the estimate is a lower bound for the correct base
+** is valid as long as the debug info has been generated with the same
+** value for MAXIWTHABS or smaller. (Previous releases use a little
+** smaller value.)
 */
 static int getbaseline (const Proto *f, int pc, int *basepc) {
   if (f->sizeabslineinfo == 0 || pc < f->abslineinfo[0].pc) {
@@ -53,20 +71,12 @@ static int getbaseline (const Proto *f, int pc, int *basepc) {
     return f->linedefined;
   }
   else {
-    unsigned int i;
-    if (pc >= f->abslineinfo[f->sizeabslineinfo - 1].pc)
-      i = f->sizeabslineinfo - 1;  /* instruction is after last saved one */
-    else {  /* binary search */
-      unsigned int j = f->sizeabslineinfo - 1;  /* pc < anchorlines[j] */
-      i = 0;  /* abslineinfo[i] <= pc */
-      while (i < j - 1) {
-        unsigned int m = (j + i) / 2;
-        if (pc >= f->abslineinfo[m].pc)
-          i = m;
-        else
-          j = m;
-      }
-    }
+    int i = cast_uint(pc) / MAXIWTHABS - 1;  /* get an estimate */
+    /* estimate must be a lower bound of the correct base */
+    lua_assert(i < 0 ||
+              (i < f->sizeabslineinfo && f->abslineinfo[i].pc <= pc));
+    while (i + 1 < f->sizeabslineinfo && pc >= f->abslineinfo[i + 1].pc)
+      i++;  /* low estimate; adjust it */
     *basepc = f->abslineinfo[i].pc;
     return f->abslineinfo[i].line;
   }
@@ -97,27 +107,38 @@ static int nextline (const Proto *p, int currentline, int pc) {
     return luaG_getfuncline(p, pc);
 }
 
-static void add_activelines(lua_State *L, Proto *proto) {
+static void add_activelines(lua_State *L, Proto *p) {
     /*
     ** For standard Lua active lines and nested prototypes
     ** are simply members of Proto, see lobject.h.
     */
     int i;
-    int currentline = proto->linedefined;
+    int currentline = p->linedefined;
 
-    for (i = 0; i < proto->sizelineinfo; i++) {  /* for all lines with code */
-        currentline = nextline(proto, currentline, i);
+#if LUA_VERSION_RELEASE_NUM >= 50404
+    if (!p->is_vararg)  /* regular function? */
+      i = 0;  /* consider all instructions */
+    else {  /* vararg function */
+      currentline = nextline(p, currentline, 0);
+      i = 1;  /* skip first instruction (OP_VARARGPREP) */
+    }
+#else
+    i = 0;
+#endif
+
+    for (; i < p->sizelineinfo; i++) {  /* for all lines with code */
+        currentline = nextline(p, currentline, i);
         lua_pushinteger(L, currentline);
         lua_pushboolean(L, 1);
         lua_settable(L, -3);
     }
 
-    for (i = 0; i < proto->sizep; i++) {
-        add_activelines(L, proto->p[i]);
+    for (i = 0; i < p->sizep; i++) {
+        add_activelines(L, p->p[i]);
     }
 }
 
-# else /* LUA_VERSION_NUM == 504 */
+#else /* PUC-Rio Lua below 5.4 */
 
 static void add_activelines(lua_State *L, Proto *proto) {
     /*
@@ -137,7 +158,7 @@ static void add_activelines(lua_State *L, Proto *proto) {
     }
 }
 
-#endif /* LUA_VERSION_NUM == 504 */
+#endif
 
 #else /* LuaJIT */
 
