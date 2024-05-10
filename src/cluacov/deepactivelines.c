@@ -18,7 +18,16 @@
 #error unsupported Lua version
 #endif
 #else /* LuaJIT */
+#include "luajit.h"
+#if LUAJIT_VERSION_NUM == 20199
+#include "lj2/lua_assert.h"
 #include "lj2/lj_obj.h"
+#elif LUAJIT_VERSION_NUM == 20100
+#include "luajit-2.1.0-beta3/lua_assert.h"
+#include "luajit-2.1.0-beta3/lj_obj.h"
+#else
+#error unsupported LuaJIT version
+#endif
 #endif
 
 #ifdef PUCRIOLUA
