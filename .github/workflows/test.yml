@@ -1,0 +1,35 @@
+name: test
+
+on:
+  push:
+    branches: master
+  pull_request:
+    branches: '*'
+
+jobs:
+  TestMatrix:
+    strategy:
+      matrix:
+        lua-version: ["5.1", "5.2", "5.3", "5.4", "luajit"]
+        os: ["ubuntu-latest", "macos-latest"]
+    runs-on: ${{ matrix.os }}
+
+    steps:
+    - uses: actions/checkout@master
+
+    - uses: leafo/gh-actions-lua@master
+      with:
+        luaVersion: ${{ matrix.lua-version }}
+
+    - uses: leafo/gh-actions-luarocks@v4.0.0
+
+    - name: Prep
+      run: |
+        luarocks install busted
+        luarocks install busted-htest
+        luarocks make
+
+    - name: Tests
+      run: |
+        eval $(luarocks path)
+        busted -o htest
