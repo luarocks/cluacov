@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.3 (2024-05-14)
+
+Updated LuaJIT and Lua 5.4 embedded sources.
+
 ## 0.1.2 (2020-08-20)
 
 Lua 5.4 support.
