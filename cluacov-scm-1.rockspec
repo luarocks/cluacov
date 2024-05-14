@@ -1,3 +1,4 @@
+rockspec_format = "3.0"
 package = "cluacov"
 version = "scm-1"
 source = {
@@ -23,4 +24,7 @@ build = {
       ["cluacov.hook"] = "src/cluacov/hook.c",
       ["cluacov.version"] = "src/cluacov/version.lua"
    }
+}
+test = {
+   type = "busted"
 }
