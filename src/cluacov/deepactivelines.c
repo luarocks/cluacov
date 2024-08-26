@@ -101,10 +101,14 @@ int luaG_getfuncline (const Proto *f, int pc) {
 }
 
 static int nextline (const Proto *p, int currentline, int pc) {
-  if (p->lineinfo[pc] != ABSLINEINFO)
+  if (p->lineinfo == NULL)  /* no debug information? */
+    return -1;
+
+  if (p->lineinfo[pc] != ABSLINEINFO) {
     return currentline + p->lineinfo[pc];
-  else
+  } else {
     return luaG_getfuncline(p, pc);
+  }
 }
 
 static void add_activelines(lua_State *L, Proto *p) {
@@ -120,6 +124,9 @@ static void add_activelines(lua_State *L, Proto *p) {
       i = 0;  /* consider all instructions */
     else {  /* vararg function */
       currentline = nextline(p, currentline, 0);
+      if (currentline == -1) {
+        return;
+      }
       i = 1;  /* skip first instruction (OP_VARARGPREP) */
     }
 #else
@@ -217,7 +224,7 @@ static int l_deepactivelines(lua_State *L) {
 
 int luaopen_cluacov_deepactivelines(lua_State *L) {
     lua_newtable(L);
-    lua_pushliteral(L, "0.1.0");
+    lua_pushliteral(L, "0.1.4");
     lua_setfield(L, -2, "version");
     lua_pushcfunction(L, l_deepactivelines);
     lua_setfield(L, -2, "get");
