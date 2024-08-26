@@ -10,18 +10,22 @@ jobs:
   TestMatrix:
     strategy:
       matrix:
-        lua-version: ["5.1", "5.2", "5.3", "5.4.0", "luajit"]
-        os: ["ubuntu-latest", "macos-latest"]
+        lua-version: ["5.1", "5.2", "5.3", "5.4", "luajit"]
+        os: ["ubuntu-latest", "macos-latest", "windows-latest"]
     runs-on: ${{ matrix.os }}
 
     steps:
     - uses: actions/checkout@master
 
-    - uses: leafo/gh-actions-lua@master
+    - uses: ilammy/msvc-dev-cmd@v1
+
+    - uses: hishamhm/gh-actions-lua@master
       with:
         luaVersion: ${{ matrix.lua-version }}
 
-    - uses: leafo/gh-actions-luarocks@v4.0.0
+    - uses: hishamhm/gh-actions-luarocks@master
+      with:
+        luaRocksVersion: "3.11.1"
 
     - name: Prep
       run: |
@@ -31,5 +35,4 @@ jobs:
 
     - name: Tests
       run: |
-        eval $(luarocks path)
         busted -o htest
