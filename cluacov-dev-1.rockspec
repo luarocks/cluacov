@@ -1,6 +1,6 @@
 rockspec_format = "3.0"
 package = "cluacov"
-version = "scm-1"
+version = "dev-1"
 source = {
    url = "git+https://github.com/luarocks/cluacov.git"
 }
